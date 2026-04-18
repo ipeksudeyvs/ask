@@ -1,7 +1,5 @@
 # Contributing to ask
 
-Thanks for your interest! `ask` is intentionally small — contributions that keep it small are the most welcome.
-
 ## Ground Rules
 
 - Keep dependencies to `curl` and `jq` only.
