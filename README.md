@@ -22,8 +22,3 @@ On Debian/Ubuntu: `sudo apt install jq curl`
 | `ASK_API_URL`  | Full chat completions endpoint URL                  |
 | `ASK_MODEL`    | Model name to use                                   |
 | `ASK_API_KEY`  | Bearer token for the provider                       |
-
-Example (Groq):
-
-```bash
-
