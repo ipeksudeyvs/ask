@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# ask - a simple CLI that sends prompts to an OpenAI-compatible chat completions API
+# Dependencies: curl, jq
+
+set -euo pipefail
+
+# --- Check dependencies ---
+for cmd in curl jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Error: '$cmd' is required but not installed." >&2
+        exit 1
+    fi
+done
+
+# --- Check environment variables ---
+: "${ASK_API_URL:?Error: ASK_API_URL environment variable is not set}"
+: "${ASK_MODEL:?Error: ASK_MODEL environment variable is not set}"
+: "${ASK_API_KEY:?Error: ASK_API_KEY environment variable is not set}"
+
+# --- Build the user prompt from arguments and/or piped stdin ---
+args_prompt=""
+if [ "$#" -gt 0 ]; then
+    args_prompt="$*"
+fi
+
+stdin_prompt=""
+if [ ! -t 0 ]; then
+    stdin_prompt="$(cat)"
+fi
+
+if [ -n "$args_prompt" ] && [ -n "$stdin_prompt" ]; then
+    user_prompt="${args_prompt}"$'\n'"${stdin_prompt}"
+elif [ -n "$args_prompt" ]; then
+    user_prompt="$args_prompt"
+elif [ -n "$stdin_prompt" ]; then
+    user_prompt="$stdin_prompt"
+else
+    echo "Usage: ask \"your prompt\"   |   echo \"text\" | ask \"instruction:\"" >&2
+    exit 1
+fi
+
+# --- System prompt (from the assignment) ---
+system_prompt="You are a CLI tool. Output plain text only. No yapping. Keep the output concise."
+
+# --- Build JSON payload safely with jq ---
+payload=$(jq -n \
+    --arg model "$ASK_MODEL" \
+    --arg sys "$system_prompt" \
+    --arg usr "$user_prompt" \
+    '{
+        model: $model,
+        messages: [
+            {role: "system", content: $sys},
+            {role: "user",   content: $usr}
+        ]
+    }')
+
+# --- Send the request ---
+response=$(curl -sS "$ASK_API_URL" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $ASK_API_KEY" \
+    -d "$payload")
+
+# --- Check for API errors ---
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+    echo "API Error:" >&2
+    echo "$response" | jq -r '.error.message' >&2
+    exit 1
+fi
+
+# --- Print the assistant's reply ---
+echo "$response" | jq -r '.choices[0].message.content'
+
